@@ -1,6 +1,30 @@
+
+# Python
 .venv/
+.venv-check/
+venv/
 __pycache__/
 *.pyc
-.env
-data/
 .pytest_cache/
+.ruff_cache/
+
+# React / Vite
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Dataset
+data/
+
+# Credenciales y variables de entorno
+.env
+.env.*
+!.env.example
+*.pem
+.aws/
+
+# Archivos temporales
+*.log
+.DS_Store
+Thumbs.db

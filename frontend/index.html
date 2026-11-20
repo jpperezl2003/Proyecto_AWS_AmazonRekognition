@@ -1,0 +1,444 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Animal Vision | Clasificador de animales</title>
+
+    <!-- Archivo de estilos -->
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+
+    <!-- Barra de navegación -->
+    <nav>
+        <div class="logo">🐾 Animal Vision</div>
+        <div class="nav-tag">Powered by AWS AI</div>
+    </nav>
+
+    <main>
+
+        <!-- Título principal -->
+        <div class="heading">
+            <h1>
+                Descubre el mundo animal
+                <span class="highlight">con IA.</span>
+            </h1>
+
+            <p>
+                Sube una fotografía y deja que nuestro modelo
+                de Machine Learning identifique el animal.
+                <br>
+                Entrenado para reconocer 10 categorías diferentes.
+            </p>
+        </div>
+
+        <!-- Contenedor principal -->
+        <div class="container">
+
+            <!-- Subir imagen -->
+            <section class="card">
+
+                <h2>📷 Subir fotografía</h2>
+
+                <p class="description">
+                    Selecciona una fotografía para analizarla
+                    con Amazon Rekognition Custom Labels.
+                </p>
+
+                <div class="upload-area" id="uploadArea">
+
+                    <div class="upload-icon">☁️</div>
+
+                    <h3>Arrastra tu imagen aquí</h3>
+
+                    <p>
+                        O haz clic para seleccionar un archivo
+                    </p>
+
+                    <p class="upload-hint">
+                        JPG o PNG · Menos de 4 MB
+                    </p>
+
+                </div>
+
+                <input
+                    type="file"
+                    id="fileInput"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                >
+
+                <!-- Vista previa -->
+                <div id="previewContainer">
+
+                    <img
+                        id="preview"
+                        alt="Vista previa de la imagen"
+                    >
+
+                    <p id="filename"></p>
+
+                </div>
+
+                <!-- Botón de clasificación -->
+                <button
+                    class="btn"
+                    id="predictButton"
+                    disabled
+                >
+                    🔍 Identificar animal
+                </button>
+
+                <div id="error" role="alert"></div>
+
+            </section>
+
+            <!-- Resultados -->
+            <section class="card">
+
+                <h2>✨ Resultado del análisis</h2>
+
+                <p class="description">
+                    Aquí aparecerá la predicción realizada
+                    por nuestro modelo de Machine Learning.
+                </p>
+
+                <!-- Estado inicial -->
+                <div
+                    class="result-placeholder"
+                    id="placeholder"
+                >
+                    <span>🐾</span>
+
+                    <h3>Esperando una imagen</h3>
+
+                    <p>Sube una fotografía para comenzar.</p>
+                </div>
+
+                <!-- Cargando -->
+                <div id="loading">
+
+                    <div class="spinner"></div>
+
+                    <p>Analizando imagen con IA...</p>
+                </div>
+
+                <!-- Predicción -->
+                <div id="result">
+
+                    <div
+                        class="animal-icon"
+                        id="animalIcon"
+                    >
+                        🐾
+                    </div>
+
+                    <div
+                        class="animal-name"
+                        id="animalName"
+                    ></div>
+
+                    <p class="result-subtitle">
+                        Resultado de Amazon Rekognition
+                    </p>
+
+                    <div class="confidence-label">
+
+                        <span>Confianza del modelo</span>
+
+                        <span
+                            class="confidence-value"
+                            id="confidenceText"
+                        ></span>
+
+                    </div>
+
+                    <!-- Barra de confianza -->
+                    <div class="progress-bg">
+
+                        <div
+                            class="progress-bar"
+                            id="confidenceBar"
+                        ></div>
+
+                    </div>
+
+                    <div class="model-tag">
+                        🧠 Amazon Rekognition Custom Labels
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+        <div class="info">
+            Clasificación mediante Machine Learning
+            utilizando Amazon Web Services.
+            <br>
+            Las predicciones pueden ser incorrectas.
+        </div>
+
+    </main>
+
+    <footer>
+        Animal Vision · Proyecto de Machine Learning · AWS
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+
+        const uploadArea = document.getElementById("uploadArea");
+        const fileInput = document.getElementById("fileInput");
+        const preview = document.getElementById("preview");
+        const previewContainer = document.getElementById("previewContainer");
+        const filename = document.getElementById("filename");
+        const predictButton = document.getElementById("predictButton");
+
+        const placeholder = document.getElementById("placeholder");
+        const loading = document.getElementById("loading");
+        const result = document.getElementById("result");
+        const errorBox = document.getElementById("error");
+
+        let selectedFile = null;
+        let previewURL = null;
+        let isPredicting = false;
+
+        const MAX_SIZE = 4 * 1024 * 1024;
+
+        // Traducción de animales
+        const animalNames = {
+            butterfly: "Mariposa",
+            cat: "Gato",
+            chicken: "Gallina",
+            cow: "Vaca",
+            dog: "Perro",
+            elephant: "Elefante",
+            horse: "Caballo",
+            sheep: "Oveja",
+            spider: "Araña",
+            squirrel: "Ardilla"
+        };
+
+        // Iconos de animales
+        const animalIcons = {
+            butterfly: "🦋",
+            cat: "🐱",
+            chicken: "🐔",
+            cow: "🐄",
+            dog: "🐕",
+            elephant: "🐘",
+            horse: "🐎",
+            sheep: "🐑",
+            spider: "🕷️",
+            squirrel: "🐿️"
+        };
+
+        // Seleccionar archivo
+        uploadArea.addEventListener("click", () => {
+            if (!isPredicting) fileInput.click();
+        });
+
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length > 0) {
+                selectFile(fileInput.files[0]);
+            }
+        });
+
+        // Arrastrar archivos
+        uploadArea.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            if (!isPredicting) {
+                uploadArea.classList.add("dragover");
+            }
+        });
+
+        uploadArea.addEventListener("dragleave", () => {
+            uploadArea.classList.remove("dragover");
+        });
+
+        uploadArea.addEventListener("drop", (event) => {
+            event.preventDefault();
+
+            uploadArea.classList.remove("dragover");
+
+            if (
+                !isPredicting &&
+                event.dataTransfer.files.length > 0
+            ) {
+                selectFile(event.dataTransfer.files[0]);
+            }
+        });
+
+        // Mostrar errores
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.style.display = "block";
+        }
+
+        // Reiniciar resultado
+        function resetResult() {
+            errorBox.style.display = "none";
+            result.style.display = "none";
+            loading.style.display = "none";
+            placeholder.style.display = "flex";
+        }
+
+        // Validar imagen y generar vista previa
+        function selectFile(file) {
+
+            if (isPredicting) return;
+
+            resetResult();
+
+            selectedFile = null;
+            predictButton.disabled = true;
+            previewContainer.style.display = "none";
+
+            if (previewURL) {
+                URL.revokeObjectURL(previewURL);
+                previewURL = null;
+            }
+
+            if (
+                !["image/jpeg", "image/png"].includes(file.type)
+            ) {
+                showError("Selecciona una imagen JPG o PNG.");
+                return;
+            }
+
+            if (file.size === 0 || file.size >= MAX_SIZE) {
+                showError("La imagen debe ser menor de 4 MB.");
+                return;
+            }
+
+            selectedFile = file;
+
+            previewURL = URL.createObjectURL(file);
+
+            preview.src = previewURL;
+            filename.textContent = file.name;
+
+            previewContainer.style.display = "block";
+            predictButton.disabled = false;
+        }
+
+        // Enviar imagen a FastAPI y Rekognition
+        predictButton.addEventListener("click", async () => {
+
+            if (!selectedFile || isPredicting) return;
+
+            isPredicting = true;
+            predictButton.disabled = true;
+            predictButton.textContent = "Analizando...";
+
+            errorBox.style.display = "none";
+            placeholder.style.display = "none";
+            result.style.display = "none";
+            loading.style.display = "block";
+
+            // Preparar imagen para FastAPI
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            try {
+
+                // Llamada a nuestro endpoint
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        typeof data.detail === "string"
+                            ? data.detail
+                            : "No se pudo procesar la imagen."
+                    );
+                }
+
+                // Obtener predicción
+                const prediction = data.prediction;
+
+                if (!prediction || !prediction.animal) {
+                    throw new Error(
+                        "No se identificó un animal " +
+                        "con suficiente confianza."
+                    );
+                }
+
+                const animal = String(
+                    prediction.animal
+                ).toLowerCase();
+
+                const confidence = Number(
+                    prediction.confidence
+                );
+
+                if (!Number.isFinite(confidence)) {
+                    throw new Error(
+                        "La confianza recibida no es válida."
+                    );
+                }
+
+                // Traducir resultado
+                const displayName =
+                    animalNames[animal] || prediction.animal;
+
+                const displayIcon =
+                    animalIcons[animal] || "🐾";
+
+                // Mostrar nombre del animal
+                document.getElementById(
+                    "animalName"
+                ).textContent = displayName;
+
+                // Mostrar emoji
+                document.getElementById(
+                    "animalIcon"
+                ).textContent = displayIcon;
+
+                // Mostrar confianza
+                document.getElementById(
+                    "confidenceText"
+                ).textContent = confidence.toFixed(2) + "%";
+
+                // Actualizar barra
+                document.getElementById(
+                    "confidenceBar"
+                ).style.width =
+                    Math.max(0, Math.min(100, confidence)) + "%";
+
+                // Mostrar resultados
+                loading.style.display = "none";
+                result.style.display = "block";
+
+            } catch (error) {
+
+                loading.style.display = "none";
+                placeholder.style.display = "flex";
+
+                showError(error.message);
+
+            } finally {
+
+                isPredicting = false;
+                predictButton.disabled = false;
+
+                predictButton.textContent =
+                    "🔍 Identificar animal";
+            }
+
+        });
+
+    </script>
+
+</body>
+</html>
