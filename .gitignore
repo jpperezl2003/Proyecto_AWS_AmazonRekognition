@@ -28,3 +28,12 @@ data/
 *.log
 .DS_Store
 Thumbs.db
+
+
+#archivos terraform
+
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+terraform/*.tfplan

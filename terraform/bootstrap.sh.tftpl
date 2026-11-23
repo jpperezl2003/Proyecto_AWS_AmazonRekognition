@@ -1,0 +1,159 @@
+
+#!/bin/bash
+set -euo pipefail
+
+# Guardar el registro de instalacion
+exec > >(tee -a /var/log/animal-vision-bootstrap.log) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+
+echo "=== Instalando Animal Vision ==="
+
+# ==========================================
+# 1. INSTALAR DEPENDENCIAS DEL SISTEMA
+# ==========================================
+
+apt-get update
+
+apt-get install -y \
+    git \
+    curl \
+    ca-certificates \
+    python3-venv \
+    python3-pip \
+    nginx
+
+# ==========================================
+# 2. INSTALAR NODE.JS 22
+# ==========================================
+
+curl -fsSL \
+    https://deb.nodesource.com/setup_22.x \
+    -o /tmp/nodesource_setup.sh
+
+bash /tmp/nodesource_setup.sh
+
+apt-get install -y nodejs
+
+# ==========================================
+# 3. DESCARGAR EL REPOSITORIO DE GITHUB
+# ==========================================
+
+git clone \
+    --depth 1 \
+    --branch "${github_branch}" \
+    "${github_repo_url}" \
+    /opt/animal-vision
+
+cd /opt/animal-vision
+
+# ==========================================
+# 4. CONFIGURAR BACKEND FASTAPI
+# ==========================================
+
+python3 -m venv .venv
+
+.venv/bin/python -m pip install --upgrade pip
+
+.venv/bin/python -m pip install \
+    --no-cache-dir \
+    -r requirements.txt
+
+# ==========================================
+# 5. COMPILAR FRONTEND REACT
+# ==========================================
+
+cd /opt/animal-vision/web
+
+npm ci
+npm run build
+
+# Publicar los archivos compilados
+mkdir -p /var/www/animal-vision
+
+cp -a dist/. /var/www/animal-vision/
+
+# Permitir que ubuntu administre el proyecto
+chown -R ubuntu:ubuntu /opt/animal-vision
+
+# ==========================================
+# 6. CREAR SERVICIO FASTAPI
+# ==========================================
+
+cat > /etc/systemd/system/animal-vision.service <<'SERVICE'
+[Unit]
+Description=Animal Vision FastAPI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/animal-vision
+
+Environment="AWS_DEFAULT_REGION=us-east-1"
+Environment="MODEL_VERSION_ARN=${model_version_arn}"
+
+ExecStart=/opt/animal-vision/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8000
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl daemon-reload
+systemctl enable --now animal-vision
+
+# ==========================================
+# 7. CONFIGURAR NGINX
+# ==========================================
+
+cat > /etc/nginx/sites-available/animal-vision <<'NGINX'
+server {
+    listen 80;
+    server_name _;
+
+    root /var/www/animal-vision;
+    index index.html;
+
+    client_max_body_size 5m;
+
+    location = /predict {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_read_timeout 90s;
+    }
+
+    location = /health {
+        proxy_pass http://127.0.0.1:8000;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+NGINX
+
+rm -f /etc/nginx/sites-enabled/default
+
+ln -sf \
+    /etc/nginx/sites-available/animal-vision \
+    /etc/nginx/sites-enabled/animal-vision
+
+nginx -t
+
+systemctl enable --now nginx
+systemctl restart nginx
+
+# ==========================================
+# 8. VERIFICAR BACKEND
+# ==========================================
+
+curl --fail \
+    --retry 12 \
+    --retry-delay 3 \
+    --retry-connrefused \
+    http://127.0.0.1:8000/health
+
+echo "=== Animal Vision desplegado correctamente ==="
