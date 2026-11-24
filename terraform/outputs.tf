@@ -13,3 +13,13 @@ output "ec2_instance_id" {
   description = "ID de la instancia EC2"
   value       = aws_instance.animal_vision.id
 }
+
+
+# ==========================================
+# GITHUB ACTIONS - CD
+# ==========================================
+
+output "github_deploy_role_arn" {
+  description = "ARN del rol IAM utilizado por GitHub Actions para CD"
+  value       = aws_iam_role.github_deploy.arn
+}

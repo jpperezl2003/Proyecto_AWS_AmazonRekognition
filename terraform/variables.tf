@@ -35,3 +35,18 @@ variable "model_version_arn" {
   type        = string
 }
 
+
+# ==========================================
+# GITHUB OIDC - IDENTIFICADORES
+# ==========================================
+
+variable "github_owner_id" {
+  description = "ID numerico del propietario en GitHub"
+  type        = string
+}
+
+variable "github_repo_id" {
+  description = "ID numerico del repositorio en GitHub"
+  type        = string
+}
+
