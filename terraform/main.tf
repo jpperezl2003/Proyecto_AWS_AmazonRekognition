@@ -41,7 +41,6 @@ resource "aws_security_group" "alb" {
   }
 }
 
-
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   security_group_id = aws_security_group.alb.id
 
@@ -50,7 +49,6 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   to_port     = 80
   ip_protocol = "tcp"
 }
-
 
 resource "aws_security_group" "ec2" {
   name_prefix = "${var.project_name}-ec2-"
@@ -63,6 +61,7 @@ resource "aws_security_group" "ec2" {
 }
 
 # ALB -> EC2 (HTTP)
+
 resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   security_group_id = aws_security_group.ec2.id
 
@@ -74,6 +73,7 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
 }
 
 # ALB -> EC2 (salida)
+
 resource "aws_vpc_security_group_egress_rule" "alb_to_ec2" {
   security_group_id = aws_security_group.alb.id
 
@@ -85,13 +85,13 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_ec2" {
 }
 
 # EC2 -> Internet y servicios AWS
+
 resource "aws_vpc_security_group_egress_rule" "ec2_outbound" {
   security_group_id = aws_security_group.ec2.id
 
   cidr_ipv4   = "0.0.0.0/0"
   ip_protocol = "-1"
 }
-
 
 # ==========================================
 # APPLICATION LOAD BALANCER
@@ -156,7 +156,6 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-
 # ==========================================
 # IAM ROLE - EC2
 # ==========================================
@@ -207,6 +206,35 @@ resource "aws_iam_role_policy" "rekognition" {
 }
 
 # ==========================================
+# PERMISOS PARA CLOUDWATCH
+# ==========================================
+
+resource "aws_iam_role_policy" "cloudwatch" {
+  name = "animal-vision-cloudwatch"
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [{
+      Effect = "Allow"
+
+      Action = [
+        "cloudwatch:PutMetricData"
+      ]
+
+      Resource = "*"
+
+      Condition = {
+        StringEquals = {
+          "cloudwatch:namespace" = "AnimalVision/ML"
+        }
+      }
+    }]
+  })
+}
+
+# ==========================================
 # PERMISOS PARA SYSTEMS MANAGER
 # ==========================================
 
@@ -224,7 +252,6 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   name_prefix = "${var.project_name}-profile-"
   role        = aws_iam_role.ec2_role.name
 }
-
 
 # ==========================================
 # AMI - UBUNTU 22.04
@@ -245,8 +272,6 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-
-
 # ==========================================
 # EC2 - ANIMAL VISION
 # ==========================================
@@ -256,6 +281,7 @@ resource "aws_instance" "animal_vision" {
   instance_type = var.instance_type
 
   # Red
+
   subnet_id = local.alb_subnet_ids[0]
 
   vpc_security_group_ids = [
@@ -265,9 +291,11 @@ resource "aws_instance" "animal_vision" {
   associate_public_ip_address = true
 
   # Rol IAM
+
   iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
   # Disco
+
   root_block_device {
     volume_size = 25
     volume_type = "gp3"
@@ -275,21 +303,24 @@ resource "aws_instance" "animal_vision" {
   }
 
   # Seguridad IMDSv2
+
   metadata_options {
     http_tokens = "required"
   }
 
   depends_on = [
     aws_iam_role_policy_attachment.ssm,
-    aws_iam_role_policy.rekognition
+    aws_iam_role_policy.rekognition,
+    aws_iam_role_policy.cloudwatch
   ]
 
   tags = {
     Name    = "${var.project_name}-server"
     Project = var.project_name
   }
-   
+
   # Despliegue automatico de Animal Vision
+
   user_data = templatefile(
     "${path.module}/bootstrap.sh.tftpl",
     {
@@ -301,7 +332,6 @@ resource "aws_instance" "animal_vision" {
 
   user_data_replace_on_change = true
 }
-
 
 # ==========================================
 # TARGET GROUP ATTACHMENT - EC2

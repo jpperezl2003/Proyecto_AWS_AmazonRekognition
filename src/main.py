@@ -18,6 +18,11 @@ from starlette.concurrency import run_in_threadpool
 
 from src.predict import clasificar_animal
 
+from src.monitoring import (
+    record_prediction,
+    record_prediction_error,
+)
+
 
 # --------------------------------------------------
 # Configuración de FastAPI
@@ -38,7 +43,6 @@ FRONTEND_DIR = (
     Path(__file__).resolve().parent.parent / "frontend"
 )
 
-# Permitir que FastAPI cargue archivos CSS
 app.mount(
     "/static",
     StaticFiles(directory=str(FRONTEND_DIR)),
@@ -113,21 +117,30 @@ async def predict(file: UploadFile = File(...)):
         )
 
     except RuntimeError as error:
+
+        await run_in_threadpool(record_prediction_error)
+
         raise HTTPException(
             status_code=503,
             detail=str(error)
         )
 
     except (NoCredentialsError, PartialCredentialsError):
+
+        await run_in_threadpool(record_prediction_error)
+
         raise HTTPException(
             status_code=503,
             detail="Credenciales AWS no configuradas"
         )
 
     except ClientError:
+
         logger.exception(
             "Error al consultar Amazon Rekognition"
         )
+
+        await run_in_threadpool(record_prediction_error)
 
         raise HTTPException(
             status_code=502,
@@ -136,6 +149,15 @@ async def predict(file: UploadFile = File(...)):
                 "y el estado del modelo."
             )
         )
+
+    # --------------------------------------------------
+    # Publicar métricas personalizadas en CloudWatch
+    # --------------------------------------------------
+
+    await run_in_threadpool(
+        record_prediction,
+        result
+    )
 
     # Devolver predicción real
     return {

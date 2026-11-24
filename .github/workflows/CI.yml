@@ -29,6 +29,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: testing
       AWS_DEFAULT_REGION: us-east-1
       AWS_EC2_METADATA_DISABLED: "true"
+      ENABLE_CLOUDWATCH_METRICS: "false"
 
     steps:
       - name: Descargar repositorio
@@ -143,12 +144,38 @@ jobs:
 
           commands = [
               "set -eu",
+
               "echo '=== Actualizando Animal Vision ==='",
+
               "cd /opt/animal-vision",
+
               f"sudo -u ubuntu git fetch --no-tags --depth=1 origin {sha}",
+
               f"sudo -u ubuntu git -c advice.detachedHead=false checkout --force --detach {sha}",
+
+              "echo '=== Configurando monitoreo CloudWatch ==='",
+
+              "mkdir -p /etc/systemd/system/animal-vision.service.d",
+
+              "printf '[Service]\\nEnvironment=\"ENABLE_CLOUDWATCH_METRICS=true\"\\n' > /etc/systemd/system/animal-vision.service.d/monitoring.conf",
+
+              "systemctl daemon-reload",
+
               "echo '=== Ejecutando deploy.sh ==='",
-              "bash scripts/deploy.sh"
+
+              "bash scripts/deploy.sh",
+
+              "echo '=== Verificando monitoreo CloudWatch ==='",
+
+              "systemctl restart animal-vision",
+
+              "systemctl is-active --quiet animal-vision",
+
+              "systemctl show animal-vision --property=Environment --value | grep -q 'ENABLE_CLOUDWATCH_METRICS=true'",
+
+              "curl --fail --retry 12 --retry-delay 3 --retry-connrefused http://127.0.0.1:8000/health",
+
+              "echo '=== Monitoreo CloudWatch habilitado ==='"
           ]
 
           parameters = {

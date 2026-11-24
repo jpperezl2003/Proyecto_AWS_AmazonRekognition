@@ -68,11 +68,13 @@ npm ci
 npm run build
 
 # Publicar los archivos compilados
+
 mkdir -p /var/www/animal-vision
 
 cp -a dist/. /var/www/animal-vision/
 
 # Permitir que ubuntu administre el proyecto
+
 chown -R ubuntu:ubuntu /opt/animal-vision
 
 # ==========================================
@@ -91,6 +93,7 @@ WorkingDirectory=/opt/animal-vision
 
 Environment="AWS_DEFAULT_REGION=us-east-1"
 Environment="MODEL_VERSION_ARN=${model_version_arn}"
+Environment="ENABLE_CLOUDWATCH_METRICS=true"
 
 ExecStart=/opt/animal-vision/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8000
 
