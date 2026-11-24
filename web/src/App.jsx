@@ -68,6 +68,12 @@ function Icon({ name, size = 22, className = "" }) {
         <path d="m21 15-5-5L5 21" />
       </>
     ),
+    reset: (
+      <>
+        <path d="M3 12a9 9 0 1 1 9 9" />
+        <path d="M3 4v8h8" />
+      </>
+    ),
     shield: (
       <>
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
@@ -147,6 +153,16 @@ function App() {
     setPreviewUrl(URL.createObjectURL(file));
   }
 
+  function resetPrediction() {
+    if (loading) return;
+    setSelectedFile(null);
+    setPreviewUrl("");
+    setPrediction(null);
+    setError("");
+    setDragging(false);
+    if (inputRef.current) { inputRef.current.value = ""; inputRef.current.focus(); }
+  }
+
   function handleDrop(event) {
     event.preventDefault();
     setDragging(false);
@@ -216,62 +232,25 @@ function App() {
   return (
     <>
       <a className="skip-link" href="#contenido">Saltar al contenido</a>
-
-      <header className="site-header" id="inicio">
-        <div className="shell header-inner">
-          <a className="brand" href="#inicio" aria-label="Animal Vision, volver al inicio">
-            <span className="brand-mark"><Icon name="scan" size={25} /></span>
-            <span className="brand-copy"><strong>animal<span>vision</span></strong><small>INTELLIGENT IMAGE LAB</small></span>
-          </a>
-          <nav className="header-nav" aria-label="Navegación principal">
-            <a href="#como-funciona">Cómo funciona</a>
-            <a className="nav-action" href="#analizador">Probar ahora <Icon name="arrow" size={16} /></a>
-          </nav>
-        </div>
-      </header>
-
+      <header className="site-header"><div className="shell header-inner">
+        <a className="brand" href="#inicio"><span className="brand-mark" aria-hidden="true"/><span>ANIMAL<br/>VISION</span></a>
+        <nav aria-label="Navegación principal"><a href="#analizador">Explorar</a><a href="#categorias">Animales</a></nav>
+        <span className="edition">CUADERNO DE CAMPO / 01</span>
+      </div></header>
       <main id="contenido">
-        <section className="hero shell" aria-labelledby="hero-title">
-          <div className="hero-content">
-            <span className="eyebrow"><span className="eyebrow-dot" /> INTELIGENCIA ARTIFICIAL APLICADA</span>
-            <h1 id="hero-title">Una nueva forma de <em>ver</em> la naturaleza.</h1>
-            <p>Sube una fotografía y descubre qué animal identifica nuestro modelo de Machine Learning, entrenado con Amazon Rekognition.</p>
-            <a className="hero-link" href="#analizador">Explorar el clasificador <Icon name="arrow" size={18} /></a>
-            <div className="hero-meta">
-              <span><strong>10</strong> categorías</span>
-              <span className="meta-divider" />
-              <span><strong>AWS</strong> Rekognition Custom Labels</span>
-            </div>
+        <section className="hero" id="inicio" aria-labelledby="hero-title">
+          <div className="hero-landscape" aria-hidden="true" />
+          <div className="shell hero-content">
+            <span className="section-kicker">NATURALEZA × INTELIGENCIA ARTIFICIAL</span>
+            <h1 id="hero-title">El mundo animal,<br/><em>otra perspectiva.</em></h1>
+            <p>Cada fotografía es una oportunidad para descubrir. Explora 10 categorías de animales con nuestro modelo de inteligencia artificial.</p>
+            <a className="hero-link" href="#analizador">Comienza la exploración <Icon name="arrow" size={20}/></a>
           </div>
-          <div className="hero-art" aria-hidden="true">
-            <div className="orb orb-outer" />
-            <div className="orb orb-inner" />
-            <div className="viewfinder">
-              <span className="viewfinder-label">VISUAL ID · 01</span>
-              <span className="viewfinder-center"><Icon name="scan" size={54} /></span>
-              <span className="viewfinder-bottom">OBSERVAR · DETECTAR · DESCUBRIR</span>
-            </div>
-            <span className="orbit-animal orbit-cat">🐈</span>
-            <span className="orbit-animal orbit-butterfly">🦋</span>
-            <span className="orbit-animal orbit-elephant">🐘</span>
-            <span className="hero-caption">POWERED BY MACHINE LEARNING <span>✦</span></span>
-          </div>
+          <span className="hero-caption">01 / OBSERVAR LO EXTRAORDINARIO</span>
         </section>
-
         <section className="workspace shell" id="analizador" aria-labelledby="workspace-title">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">EL LABORATORIO / 01</span>
-              <h2 id="workspace-title">Pon a prueba la visión artificial.</h2>
-              <p>Una imagen es suficiente para comenzar.</p>
-            </div>
-            <div className="api-indicator" aria-live="polite">
-              <span className={`status-dot ${apiStatus}`} />
-              {apiStatus === "online" ? "API disponible" : apiStatus === "offline" ? "API no disponible" : "Comprobando API…"}
-              <span className="api-note">(no indica el estado de AWS)</span>
-            </div>
-          </div>
-
+          <div className="section-heading"><div><span className="section-kicker">01 / EL EXPLORADOR</span><h2 id="workspace-title">Identifica tu descubrimiento.</h2><p>Sube una fotografía y consulta la clasificación del modelo.</p></div>
+          <div className="api-indicator" aria-live="polite"><span className={`status-dot ${apiStatus}`}/>{apiStatus === "online" ? "API disponible" : apiStatus === "offline" ? "API no disponible" : "Comprobando API…"}<small>Estado de FastAPI, no del modelo AWS</small></div></div>
           <div className="mode-row">
             <div className="mode-tabs" role="group" aria-label="Tipo de predicción">
               <button type="button" className={!demoMode ? "active" : ""} aria-pressed={!demoMode} disabled={loading} onClick={() => changeMode(false)}>Predicción real</button>
@@ -313,7 +292,7 @@ function App() {
                   <img src={previewUrl} width="800" height="520" alt="Vista previa de la fotografía seleccionada" />
                   <div className="preview-footer">
                     <div className="file-info"><Icon name="image" size={18} /><span title={selectedFile.name}>{selectedFile.name}</span></div>
-                    <button type="button" className="remove-file" disabled={loading} onClick={() => { setSelectedFile(null); setPreviewUrl(""); setPrediction(null); setError(""); }} aria-label="Quitar fotografía"><Icon name="x" size={18} /></button>
+                    <button type="button" className="remove-file" disabled={loading} onClick={resetPrediction} aria-label="Quitar fotografía"><Icon name="x" size={18} /></button>
                   </div>
                 </div>
               )}
@@ -328,7 +307,7 @@ function App() {
             <section className="panel result-panel" aria-labelledby="result-heading">
               <div className="panel-heading">
                 <span className="panel-number">02</span>
-                <div><h3 id="result-heading">Lo que encontramos</h3><p>Tu análisis aparecerá aquí.</p></div>
+                <div><h3 id="result-heading">Ficha de identificación</h3><p>Tu análisis aparecerá aquí.</p></div>
                 <span className={`panel-status ${loading ? "processing" : prediction ? "done" : ""}`}>{loading ? "Analizando…" : prediction ? prediction.simulated ? "Demo" : "Completado" : "Pendiente"}</span>
               </div>
 
@@ -341,8 +320,8 @@ function App() {
                   </div>
                 ) : prediction && animal ? (
                   <div className="result-complete">
-                    <div className="animal-avatar" role="img" aria-label={`Animal: ${animal.name}`}>{animal.emoji}</div>
-                    <span className="result-eyebrow">{prediction.simulated ? "EJEMPLO SIMULADO · NO SE ANALIZÓ LA IMAGEN" : "ESPECIE IDENTIFICADA"}</span>
+                    <span className="field-index">FICHA DE CAMPO / 02</span>
+                    <span className="result-eyebrow">{prediction.simulated ? "EJEMPLO SIMULADO · NO SE ANALIZÓ LA IMAGEN" : "CATEGORÍA IDENTIFICADA"}</span>
                     <h4>{animal.name}</h4>
                     <p className="result-summary">{prediction.simulated ? "Este resultado es fijo para probar el diseño sin conectar con AWS." : "Esta es la categoría con mayor confianza detectada por el modelo."}</p>
                     <div className="confidence-box">
@@ -351,12 +330,15 @@ function App() {
                       <p>{prediction.simulated ? "No es una predicción real." : "La confianza expresa la puntuación del modelo, no una garantía de acierto."}</p>
                     </div>
                     <div className="result-footer"><Icon name="check" size={17} /> {prediction.simulated ? "Modo demostración" : "Amazon Rekognition Custom Labels"}</div>
+                    <button className="reset-button" type="button" onClick={resetPrediction} disabled={loading}>
+                      <Icon name="reset" size={20} /> Nueva exploración
+                    </button>
                   </div>
                 ) : (
                   <div className="result-empty">
                     <span className="result-empty-graphic"><Icon name="scan" size={46} /></span>
                     <span className="empty-kicker">LISTO PARA DESCUBRIR</span>
-                    <h4>La próxima pista está en tu imagen.</h4>
+                    <h4>Tu próxima aventura comienza aquí.</h4>
                     <p>Selecciona una fotografía y verás aquí el animal y su nivel de confianza.</p>
                   </div>
                 )}
@@ -365,19 +347,16 @@ function App() {
           </div>
         </section>
 
-        <section className="how-it-works shell" id="como-funciona" aria-labelledby="steps-title">
-          <div className="steps-heading"><span className="section-kicker">ASÍ DE SIMPLE / 02</span><h2 id="steps-title">De una foto a una respuesta.</h2></div>
-          <div className="steps-grid">
-            <div className="step"><span className="step-number">01</span><Icon name="image" size={26} /><h3>Elige una imagen</h3><p>Selecciona una fotografía JPG o PNG desde tu dispositivo.</p></div>
-            <div className="step"><span className="step-number">02</span><Icon name="scan" size={26} /><h3>Analiza con IA</h3><p>FastAPI envía la imagen al modelo de Rekognition a través de Boto3.</p></div>
-            <div className="step"><span className="step-number">03</span><Icon name="check" size={26} /><h3>Explora el resultado</h3><p>Consulta la categoría detectada y la confianza del modelo.</p></div>
-          </div>
+        <section className="shell catalogue" id="categorias" aria-labelledby="catalogue-title">
+          <span className="section-kicker">02 / GUÍA DE CAMPO</span><h2 id="catalogue-title">El reino animal, en 10 categorías.</h2>
+          <p>Estas son las categorías que reconoce nuestro modelo.</p>
+          <div className="catalogue-grid">{Object.entries(ANIMALS).map(([key, item], index) => (
+            <article className="animal-card" key={key}><span className="catalogue-number">{String(index + 1).padStart(2, "0")}</span><span className="catalogue-icon" aria-hidden="true">{item.emoji}</span><h3>{item.name}</h3></article>
+          ))}</div>
         </section>
       </main>
-
-      <footer className="site-footer"><div className="shell footer-inner"><span>© Animal Vision · Proyecto de Machine Learning</span><span>React + FastAPI + AWS Rekognition</span></div></footer>
+      <footer className="site-footer"><div className="shell footer-inner"><span>ANIMAL VISION / Proyecto de Machine Learning</span><span translate="no">React · FastAPI · Amazon Rekognition</span></div></footer>
     </>
   );
 }
-
 export default App;
