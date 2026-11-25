@@ -42,7 +42,49 @@ mkdir -p "$FRONTEND_DIR"
 cp -a dist/. "$FRONTEND_DIR/"
 
 # ===================================
-# 4. REINICIAR FASTAPI
+# 4. ACTUALIZAR CONFIGURACION NGINX
+# ===================================
+
+echo "Actualizando configuracion Nginx..."
+
+cat > /etc/nginx/sites-available/animal-vision <<'NGINX'
+server {
+    listen 80;
+    server_name _;
+
+    root /var/www/animal-vision;
+    index index.html;
+
+    client_max_body_size 5m;
+
+    location = /predict {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_read_timeout 90s;
+    }
+
+    location = /feedback {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_read_timeout 90s;
+    }
+
+    location = /health {
+        proxy_pass http://127.0.0.1:8000;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+NGINX
+
+nginx -t
+
+systemctl reload nginx
+
+# ===================================
+# 5. REINICIAR FASTAPI
 # ===================================
 
 echo "Reiniciando servicio FastAPI..."
@@ -50,7 +92,7 @@ echo "Reiniciando servicio FastAPI..."
 systemctl restart animal-vision
 
 # ===================================
-# 5. VERIFICAR SALUD DEL BACKEND
+# 6. VERIFICAR SALUD DEL BACKEND
 # ===================================
 
 echo "Verificando /health..."
@@ -61,6 +103,24 @@ for intento in $(seq 1 15); do
     http://127.0.0.1:8000/health; then
 
     echo ""
+
+    # Verificar que Nginx dirige /feedback a FastAPI.
+    # Una solicitud GET debe devolver 405,
+    # ya que el endpoint solamente acepta POST.
+
+    FEEDBACK_STATUS=$(curl --silent \
+      --output /dev/null \
+      --write-out "%{http_code}" \
+      http://127.0.0.1/feedback)
+
+    if [ "$FEEDBACK_STATUS" != "405" ]; then
+      echo "ERROR: Proxy /feedback no funciona."
+      echo "HTTP Status: $FEEDBACK_STATUS"
+      exit 1
+    fi
+
+    echo "Endpoint /feedback disponible."
+
     echo "==================================="
     echo " DESPLIEGUE COMPLETADO CORRECTAMENTE "
     echo "==================================="

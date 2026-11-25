@@ -68,13 +68,11 @@ npm ci
 npm run build
 
 # Publicar los archivos compilados
-
 mkdir -p /var/www/animal-vision
 
 cp -a dist/. /var/www/animal-vision/
 
 # Permitir que ubuntu administre el proyecto
-
 chown -R ubuntu:ubuntu /opt/animal-vision
 
 # ==========================================
@@ -122,6 +120,12 @@ server {
     client_max_body_size 5m;
 
     location = /predict {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_read_timeout 90s;
+    }
+
+    location = /feedback {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_read_timeout 90s;

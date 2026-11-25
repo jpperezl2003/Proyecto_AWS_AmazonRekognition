@@ -129,3 +129,16 @@ nav{gap:12px;font-size:13px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
 
+
+/* Human-in-the-loop */
+.feedback-box{border-block:1px solid var(--line);padding:18px 0;display:grid;gap:12px}
+.feedback-box h5{font:700 19px Georgia,serif;margin:0;color:#f7f4ea}
+.feedback-box p{font-size:13px}
+.feedback-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.feedback-box button{font:inherit;font-weight:700;font-size:14px;min-height:44px;padding:10px;border:1px solid #89927c;background:#151a13;color:#f7f4ea;display:flex;align-items:center;justify-content:center;gap:8px}
+.feedback-box button:hover:not(:disabled),.feedback-box button[aria-expanded=true]{border-color:var(--yellow);color:var(--yellow)}
+.feedback-form{display:grid;gap:10px;font-size:14px}
+.feedback-form select{width:100%;min-height:44px;background:#151a13;color:#f7f4ea;border:1px solid #89927c;padding:10px;font:inherit}
+.feedback-form button[type=submit]{background:var(--yellow);color:#151810;border-color:var(--yellow)}
+.feedback-box .feedback-success{display:flex;align-items:center;gap:8px;color:#b6e5ad}
+@media(max-width:380px){.feedback-actions{grid-template-columns:1fr}}

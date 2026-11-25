@@ -107,6 +107,45 @@ function App() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackChoice, setFeedbackChoice] = useState("");
+  const [actualAnimal, setActualAnimal] = useState("");
+  const [feedbackError, setFeedbackError] = useState("");
+  const busy = loading || feedbackBusy;
+
+  function resetFeedback() {
+    setFeedbackSent(false);
+    setFeedbackChoice("");
+    setActualAnimal("");
+    setFeedbackError("");
+  }
+
+  async function sendFeedback(correct) {
+    if (busy || feedbackSent || !prediction || prediction.simulated) return;
+    if (!correct && !actualAnimal) return;
+    setFeedbackBusy(true);
+    setFeedbackError("");
+    try {
+      const response = await fetch("/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          correct,
+          predicted_animal: prediction.animal.toLowerCase(),
+          actual_animal: correct ? prediction.animal.toLowerCase() : actualAnimal,
+        }),
+      });
+      if (!response.ok) throw new Error("No se pudo registrar la evaluación. Intenta nuevamente.");
+      const data = await response.json();
+      if (data.status !== "ok") throw new Error("La API no confirmó la evaluación.");
+      setFeedbackSent(true);
+    } catch (err) {
+      setFeedbackError(err.message || "Error al enviar la evaluación.");
+    } finally {
+      setFeedbackBusy(false);
+    }
+  }
   const [demoMode, setDemoMode] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState("");
@@ -135,7 +174,8 @@ function App() {
   }, []);
 
   function chooseFile(file) {
-    if (loading || !file) return;
+    if (busy || !file) return;
+    resetFeedback();
     setPrediction(null);
     setError("");
     setSelectedFile(null);
@@ -154,9 +194,10 @@ function App() {
   }
 
   function resetPrediction() {
-    if (loading) return;
+    if (busy) return;
     setSelectedFile(null);
     setPreviewUrl("");
+    resetFeedback();
     setPrediction(null);
     setError("");
     setDragging(false);
@@ -166,20 +207,22 @@ function App() {
   function handleDrop(event) {
     event.preventDefault();
     setDragging(false);
-    if (!loading) chooseFile(event.dataTransfer.files[0]);
+    if (!busy) chooseFile(event.dataTransfer.files[0]);
   }
 
   function changeMode(isDemo) {
-    if (loading) return;
+    if (busy) return;
     setDemoMode(isDemo);
+    resetFeedback();
     setPrediction(null);
     setError("");
   }
 
   async function classifyImage() {
-    if (!selectedFile || loading) return;
+    if (!selectedFile || busy) return;
 
     setError("");
+    resetFeedback();
     setPrediction(null);
     setLoading(true);
 
@@ -253,8 +296,8 @@ function App() {
           <div className="api-indicator" aria-live="polite"><span className={`status-dot ${apiStatus}`}/>{apiStatus === "online" ? "API disponible" : apiStatus === "offline" ? "API no disponible" : "Comprobando API…"}<small>Estado de FastAPI, no del modelo AWS</small></div></div>
           <div className="mode-row">
             <div className="mode-tabs" role="group" aria-label="Tipo de predicción">
-              <button type="button" className={!demoMode ? "active" : ""} aria-pressed={!demoMode} disabled={loading} onClick={() => changeMode(false)}>Predicción real</button>
-              <button type="button" className={demoMode ? "active" : ""} aria-pressed={demoMode} disabled={loading} onClick={() => changeMode(true)}>Demo sin AWS</button>
+              <button type="button" className={!demoMode ? "active" : ""} aria-pressed={!demoMode} disabled={busy} onClick={() => changeMode(false)}>Predicción real</button>
+              <button type="button" className={demoMode ? "active" : ""} aria-pressed={demoMode} disabled={busy} onClick={() => changeMode(true)}>Demo sin AWS</button>
             </div>
             <p className="mode-hint">{demoMode ? "Vista de prueba: muestra siempre un elefante simulado; no analiza la foto ni genera cargos en AWS." : "Usa el modelo de Rekognition en ejecución. Puede generar cargos por inferencia."}</p>
           </div>
@@ -268,7 +311,7 @@ function App() {
 
               <label
                 className={`dropzone ${dragging ? "dragging" : ""} ${selectedFile ? "has-file" : ""}`}
-                onDragOver={(event) => { event.preventDefault(); if (!loading) setDragging(true); }}
+                onDragOver={(event) => { event.preventDefault(); if (!busy) setDragging(true); }}
                 onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }}
                 onDrop={handleDrop}
               >
@@ -277,7 +320,7 @@ function App() {
                   type="file"
                   name="animal-image"
                   accept="image/jpeg,image/png"
-                  disabled={loading}
+                  disabled={busy}
                   aria-label="Seleccionar una fotografía JPG o PNG"
                   onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = ""; }}
                 />
@@ -292,12 +335,12 @@ function App() {
                   <img src={previewUrl} width="800" height="520" alt="Vista previa de la fotografía seleccionada" />
                   <div className="preview-footer">
                     <div className="file-info"><Icon name="image" size={18} /><span title={selectedFile.name}>{selectedFile.name}</span></div>
-                    <button type="button" className="remove-file" disabled={loading} onClick={resetPrediction} aria-label="Quitar fotografía"><Icon name="x" size={18} /></button>
+                    <button type="button" className="remove-file" disabled={busy} onClick={resetPrediction} aria-label="Quitar fotografía"><Icon name="x" size={18} /></button>
                   </div>
                 </div>
               )}
 
-              <button className="classify-button" type="button" onClick={classifyImage} disabled={!selectedFile || loading}>
+              <button className="classify-button" type="button" onClick={classifyImage} disabled={!selectedFile || busy}>
                 {loading ? <><span className="button-spinner" aria-hidden="true" /> Analizando imagen…</> : <><Icon name="sparkles" size={20} /> {demoMode ? "Ver resultado de ejemplo" : "Identificar animal"} <Icon name="arrow" size={19} className="button-arrow" /></>}
               </button>
               <p className="upload-footnote"><Icon name="shield" size={16} /> {demoMode ? "Modo demo: no se envía ninguna fotografía." : "La fotografía se envía a tu API únicamente para clasificarla."}</p>
@@ -330,7 +373,37 @@ function App() {
                       <p>{prediction.simulated ? "No es una predicción real." : "La confianza expresa la puntuación del modelo, no una garantía de acierto."}</p>
                     </div>
                     <div className="result-footer"><Icon name="check" size={17} /> {prediction.simulated ? "Modo demostración" : "Amazon Rekognition Custom Labels"}</div>
-                    <button className="reset-button" type="button" onClick={resetPrediction} disabled={loading}>
+                    {!prediction.simulated && (
+                      <div className="feedback-box" aria-busy={feedbackBusy}>
+                        <h5>¿La predicción fue correcta?</h5>
+                        {feedbackSent ? (
+                          <p role="status" className="feedback-success"><Icon name="check" size={18}/> Gracias. Tu evaluación quedó registrada.</p>
+                        ) : (
+                          <>
+                            <p>Ayúdanos a evaluar el modelo. No se vuelve a enviar tu fotografía.</p>
+                            <div className="feedback-actions">
+                              <button type="button" disabled={busy} onClick={() => sendFeedback(true)}><Icon name="check" size={18}/> Correcta</button>
+                              <button type="button" disabled={busy} aria-expanded={feedbackChoice === "no"} onClick={() => setFeedbackChoice("no")}><Icon name="x" size={18}/> Incorrecta</button>
+                            </div>
+                            {feedbackChoice === "no" && (
+                              <form onSubmit={(event) => { event.preventDefault(); sendFeedback(false); }} className="feedback-form">
+                                <label htmlFor="actual-animal">¿Qué animal aparece realmente?</label>
+                                <select id="actual-animal" required value={actualAnimal} disabled={busy} onChange={(event) => setActualAnimal(event.target.value)}>
+                                  <option value="">Selecciona una categoría…</option>
+                                  {Object.entries(ANIMALS).filter(([key]) => key !== prediction.animal.toLowerCase()).map(([key, item]) => <option key={key} value={key}>{item.name}</option>)}
+                                  <option value="other">Otro animal / fuera del modelo</option>
+                                  <option value="not_animal">No es un animal</option>
+                                </select>
+                                <button type="submit" disabled={busy || !actualAnimal}>Enviar corrección</button>
+                              </form>
+                            )}
+                            {feedbackBusy && <p role="status">Enviando evaluación…</p>}
+                            {feedbackError && <p role="alert" className="inline-error">{feedbackError}</p>}
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <button className="reset-button" type="button" onClick={resetPrediction} disabled={busy}>
                       <Icon name="reset" size={20} /> Nueva exploración
                     </button>
                   </div>
